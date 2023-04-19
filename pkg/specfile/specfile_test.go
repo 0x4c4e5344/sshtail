@@ -1,5 +1,4 @@
 /*
- *
  * Copyright (c) 2020 Joseph Saylor <doug@saylorsolutions.com>
  * Copyright (c) 2023 Lorenzo Delgado <lnsdev@proton.me>
  *
@@ -19,6 +18,8 @@ package specfile
 
 import (
 	"encoding/json"
+	"github.com/magiconair/properties/assert"
+	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -145,31 +146,27 @@ func TestInitNoKeys(t *testing.T) {
 
 func TestReadDefault(t *testing.T) {
 	constVal, err := json.Marshal(hostAndKeysData)
-	if err != nil {
-		t.Error("Unable to serialize testing value")
-	}
+	require.NoError(t, err, "Unable to serialize testing value")
 
 	text, err := NewSpecTemplate(&SpecTemplateConfig{false, false})
-	if err != nil {
-		t.Errorf("Failed to create spec template: %v", err)
-	}
+	require.NoError(t, err, "Failed to create spec template")
 
-	ioutil.WriteFile("testDefault.yml", []byte(text), 0644)
-	defer os.Remove("testDefault.yml")
+	err = os.WriteFile("testDefault.yml", []byte(text), 0644)
+	require.NoError(t, err, "Unable to write to file")
+	defer func() {
+		err := os.Remove("testDefault.yml")
+		require.NoError(t, err, "Unable to remove test file")
+	}()
+
 	data, err := ReadSpecFile("testDefault.yml")
-	if err != nil {
-		t.Errorf("Unable to read from file: %v", err)
-	}
+	require.NoError(t, err, "Unable to read from file")
 
 	actVal, err := json.Marshal(data)
-	if err != nil {
-		t.Error("Unable to serialize actual value")
-	}
+	require.NoError(t, err, "Unable to serialize actual value")
+
 	got, want := string(actVal), string(constVal)
 
-	if got != want {
-		t.Errorf("Got:\n%s\nWant:\n%s\n", got, want)
-	}
+	assert.Equal(t, want, got)
 }
 
 func TestReadCommented(t *testing.T) {
@@ -261,7 +258,7 @@ func TestValueDefaultHost(t *testing.T) {
 	if err != nil {
 		t.Errorf("Should not have received error for missing port: %v", err)
 	}
-	if missingPort.Port != DEFAULT_SSH_PORT {
+	if missingPort.Port != DefaultSshPort {
 		t.Error("Default port was not set")
 	}
 }

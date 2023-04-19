@@ -1,5 +1,4 @@
 /*
- *
  * Copyright (c) 2020 Joseph Saylor <doug@saylorsolutions.com>
  * Copyright (c) 2023 Lorenzo Delgado <lnsdev@proton.me>
  *
@@ -15,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+// Package specfile contains the logic for parsing the spec files.
 package specfile
 
 import (
@@ -22,7 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"io/ioutil"
+	"os"
 	"os/user"
 	"path"
 	"strings"
@@ -30,7 +31,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const DEFAULT_SSH_PORT int = 22
+const DefaultSshPort int = 22
 
 func defaultUsername() string {
 	u, err := user.Current()
@@ -39,7 +40,9 @@ func defaultUsername() string {
 		// edge cases like this initially.
 		fmt.Println("Warning: Unable to determine current user")
 	}
+
 	split := strings.Split(u.Username, "\\")
+
 	return split[len(split)-1]
 }
 
@@ -56,15 +59,19 @@ func (h *HostSpec) Validate() error {
 	if h.Hostname == "" {
 		return errors.New("Host spec cannot have a blank hostname")
 	}
+
 	if h.Username == "" {
 		h.Username = defaultUsername()
 	}
+
 	if h.File == "" {
 		return errors.New("Host spec cannot have a blank file")
 	}
+
 	if h.Port == 0 {
-		h.Port = DEFAULT_SSH_PORT
+		h.Port = DefaultSshPort
 	}
+
 	return nil
 }
 
@@ -78,6 +85,7 @@ func (k *KeySpec) Validate() error {
 	if k.Path == "" {
 		k.Path = DefaultSSHKeyPath()
 	}
+
 	return nil
 }
 
@@ -115,6 +123,7 @@ func (s *SpecData) Validate() error {
 		if err != nil {
 			return fmt.Errorf("Host spec %s: %v", k, err)
 		}
+
 		_, found := s.Keys[k]
 		if !found {
 			s.Keys[k] = &KeySpec{DefaultSSHKeyPath()}
@@ -143,6 +152,7 @@ func DefaultSSHKeyPath() string {
 	} else {
 		ks = c.DefaultKey
 	}
+
 	return ks.Path
 }
 
@@ -150,15 +160,18 @@ func DefaultSSHKeyPath() string {
 func ConfigFile() (*ConfigFileData, error) {
 	u, _ := user.Current()
 	p := path.Join(u.HomeDir, ".sshtail.yaml")
-	confData, err := ioutil.ReadFile(p)
+
+	confData, err := os.ReadFile(p)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to read config file: %v", err)
 	}
-	confFileData := &ConfigFileData{}
+
+	var confFileData *ConfigFileData
 	err = yaml.Unmarshal(confData, confFileData)
 	if err != nil {
 		return nil, fmt.Errorf("Config file is not a valid format: %v", err)
 	}
+
 	return confFileData, nil
 }
 
@@ -196,6 +209,7 @@ func NewSpecTemplate(config *SpecTemplateConfig) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("Unable to parse template: %v", err)
 	}
+
 	var buf bytes.Buffer
 	if err = t.Execute(&buf, config); err != nil {
 		return "", fmt.Errorf("Unable to generate template file contents: %v", err)
@@ -206,7 +220,7 @@ func NewSpecTemplate(config *SpecTemplateConfig) (string, error) {
 
 // ReadSpecFile attempts to read SpecData from the specified file.
 func ReadSpecFile(filename string) (*SpecData, error) {
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to read '%s': %v", filename, err)
 	}
