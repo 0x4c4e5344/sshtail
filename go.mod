@@ -4,8 +4,9 @@ go 1.14
 
 require (
 	github.com/mitchellh/go-homedir v1.1.0
+	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/spf13/cobra v1.1.3
-	github.com/spf13/viper v1.13.0
-	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4
+	github.com/spf13/viper v1.15.0
+	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
 	gopkg.in/yaml.v3 v3.0.1
 )
