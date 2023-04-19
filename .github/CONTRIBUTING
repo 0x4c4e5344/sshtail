@@ -1,0 +1,44 @@
+# Contributing
+
+## Requirements
+
+* Go 1.19.+
+* Docker
+
+## Bootstrap
+
+1. Clone the repository.
+2. Run the `bootstrap` task to download dependencies:
+    ```bash
+    make bootstrap
+    ```
+3. Run `make all` to perform a clean build (and run the tests).
+
+    ```bash
+    # make all = make clean + make build + make test
+    make all
+    ```
+
+## Build the binary
+
+The `build` task compiles and writes to the `./out/bin` directory the node binary.
+
+```bash
+make build
+```
+
+## Run tests
+
+The `test` task runs the unit and integration tests.
+
+```bash
+make test
+```
+
+## Development tasks help
+
+The project `Makefile` includes a `help` task that lists all available development tasks:
+
+```bash
+make help
+```
