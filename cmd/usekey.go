@@ -1,27 +1,29 @@
 /*
-Copyright © 2020 Joseph Saylor <doug@saylorsolutions.com>
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+ *
+ * Copyright (c) 2020 Joseph Saylor <doug@saylorsolutions.com>
+ * Copyright (c) 2023 Lorenzo Delgado <lnsdev@proton.me>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package cmd
 
 import (
 	"fmt"
+	specfile2 "github.com/drognisep/sshtail/pkg/specfile"
 	"io/ioutil"
 	"os/user"
 	"path"
 
-	"github.com/drognisep/sshtail/specfile"
 	"gopkg.in/yaml.v3"
 
 	"github.com/spf13/cobra"
@@ -39,19 +41,19 @@ Instead of specifying the same key multiple times, the default key can be used
 for all of them. The default key path will be saved to your config file for
 later use.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		config, _ := specfile.ConfigFile()
+		config, _ := specfile2.ConfigFile()
 		if config == nil {
 			// Failed to read in the file. Could be not created yet.
-			config = &specfile.ConfigFileData{}
+			config = &specfile2.ConfigFileData{}
 		}
 
 		keyPath := args[0]
-		_, err := specfile.LoadKey(keyPath)
+		_, err := specfile2.LoadKey(keyPath)
 		if err != nil {
 			return fmt.Errorf("Unable to load %s as a private key: %v", keyPath, err)
 		}
 		fmt.Println("Key is valid, saving to configuration")
-		config.DefaultKey = specfile.KeySpec{Path: keyPath}
+		config.DefaultKey = specfile2.KeySpec{Path: keyPath}
 
 		newConfig, err := yaml.Marshal(config)
 		if err != nil {

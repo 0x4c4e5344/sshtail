@@ -45,7 +45,7 @@ test:	## Run all tests (unit and integration tests)
 test: test-unit
 
 test-unit:	## Run unit tests
-	$(GO) test -v -race ./cmd/... ./specfile/... $(BUILD_OPTIONS)
+	$(GO) test -v -race ./cmd/... ./pkg/... $(BUILD_OPTIONS)
 
 ## Build:
 build:	## Build main (output dir: ./build/bin/sshtail)

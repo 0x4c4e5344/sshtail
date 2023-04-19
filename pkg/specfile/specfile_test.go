@@ -1,18 +1,20 @@
 /*
-Copyright © 2020 Joseph Saylor <doug@saylorsolutions.com>
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+ *
+ * Copyright (c) 2020 Joseph Saylor <doug@saylorsolutions.com>
+ * Copyright (c) 2023 Lorenzo Delgado <lnsdev@proton.me>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package specfile
 
 import (
@@ -22,14 +24,14 @@ import (
 	"testing"
 )
 
-var hostAndKeysData SpecData = SpecData{
+var hostAndKeysData = SpecData{
 	map[string]*HostSpec{
-		"host1": &HostSpec{"remote-host-1", "", "/var/log/syslog", 22},
-		"host2": &HostSpec{"remote-host-2", "me", "/var/log/syslog", 22},
+		"host1": {"remote-host-1", "", "/var/log/syslog", 22},
+		"host2": {"remote-host-2", "me", "/var/log/syslog", 22},
 	},
 	map[string]*KeySpec{
-		"host1": &KeySpec{"~/.ssh/id_rsa"},
-		"host2": &KeySpec{"~/.ssh/id_rsa"},
+		"host1": {"~/.ssh/id_rsa"},
+		"host2": {"~/.ssh/id_rsa"},
 	},
 }
 
@@ -50,14 +52,14 @@ keys:
     path: ~/.ssh/id_rsa
 `
 
-var commentHostAndKeysData SpecData = SpecData{
+var commentHostAndKeysData = SpecData{
 	map[string]*HostSpec{
-		"host1": &HostSpec{"remote-host-1", "", "/var/log/syslog", 22},
-		"host2": &HostSpec{"remote-host-2", "me", "/var/log/syslog", 22},
+		"host1": {"remote-host-1", "", "/var/log/syslog", 22},
+		"host2": {"remote-host-2", "me", "/var/log/syslog", 22},
 	},
 	map[string]*KeySpec{
-		"host1": &KeySpec{"~/.ssh/id_rsa"},
-		"host2": &KeySpec{"~/.ssh/id_rsa"},
+		"host1": {"~/.ssh/id_rsa"},
+		"host2": {"~/.ssh/id_rsa"},
 	},
 }
 
@@ -84,10 +86,10 @@ keys:
     path: ~/.ssh/id_rsa
 `
 
-var hostData SpecData = SpecData{
+var hostData = SpecData{
 	map[string]*HostSpec{
-		"host1": &HostSpec{"remote-host-1", "", "/var/log/syslog", 22},
-		"host2": &HostSpec{"remote-host-2", "me", "/var/log/syslog", 22},
+		"host1": {"remote-host-1", "", "/var/log/syslog", 22},
+		"host2": {"remote-host-2", "me", "/var/log/syslog", 22},
 	},
 	nil,
 }
@@ -230,8 +232,8 @@ func TestReadHostOnly(t *testing.T) {
 
 func TestValidateHost(t *testing.T) {
 	errorList := []HostSpec{
-		HostSpec{"", "me", "file", 22}, // No host
-		HostSpec{"host", "me", "", 22}, // No file
+		{"", "me", "file", 22}, // No host
+		{"host", "me", "", 22}, // No file
 	}
 
 	for i, h := range errorList {
@@ -267,9 +269,9 @@ func TestValueDefaultHost(t *testing.T) {
 func TestDefaultKeysAdded(t *testing.T) {
 	spec := SpecData{
 		Hosts: map[string]*HostSpec{
-			"host1": &HostSpec{"host", "me", "file", 22},
-			"host2": &HostSpec{"host", "me", "file", 22},
-			"host3": &HostSpec{"host", "me", "file", 22},
+			"host1": {"host", "me", "file", 22},
+			"host2": {"host", "me", "file", 22},
+			"host3": {"host", "me", "file", 22},
 		},
 		Keys: nil,
 	}

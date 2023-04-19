@@ -1,18 +1,20 @@
 /*
-Copyright © 2020 Joseph Saylor <doug@saylorsolutions.com>
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+ *
+ * Copyright (c) 2020 Joseph Saylor <doug@saylorsolutions.com>
+ * Copyright (c) 2023 Lorenzo Delgado <lnsdev@proton.me>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package specfile
 
 import (
@@ -220,8 +222,8 @@ type ConsolidatedWriter struct {
 func NewConsolidatedWriter(specData *SpecData, out *os.File) (*ConsolidatedWriter, error) {
 	clientPairs, err := setupClients(specData)
 	numHosts := len(specData.Hosts)
-	var ch chan string = make(chan string, numHosts)
-	var sessions []*TailSession = make([]*TailSession, numHosts)
+	var ch = make(chan string, numHosts)
+	var sessions = make([]*TailSession, numHosts)
 	if err != nil {
 		return nil, err
 	}
