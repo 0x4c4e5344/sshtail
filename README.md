@@ -1,5 +1,9 @@
 # SSH Tail
-This is a CLI app that will setup SSH connections to multiple hosts specified in the given spec file using a key of your choice, tail the named file, and aggregate the output to the calling terminal's STDOUT.
+
+> **Note**
+> This is a fork of [drognisep/sshtail](https://github.com/drognisep/sshtail) project.
+
+This is a CLI app that will set up SSH connections to multiple hosts specified in the given spec file using a key of your choice, tail the named file, and aggregate the output to the calling terminal's STDOUT.
 
 **Note:** This utility uses the `tail` executable on the remote host to facilitate its base functionality. This limitation is mostly because I haven't figured out any other way yet. PRs welcome!
 
@@ -16,7 +20,7 @@ Otherwise, just run this command!
 go get github.com/drognisep/sshtail
 ```
 
-You can also download one of the releases directly and put in in a location on your path.
+You can also download one of the releases directly.
 
 ## Examples
 An example file can be output to "test.yml" by running
