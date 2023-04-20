@@ -42,10 +42,14 @@ fmt: format
 
 ## Test:
 test:	## Run all tests (unit and integration tests)
-test: test-unit
+test: test-unit test-integration
 
 test-unit:	## Run unit tests
 	$(GO) test -v -race ./cmd/... ./pkg/... $(BUILD_OPTIONS)
+
+test-integration:	## Run integration tests
+	$(GO) test -v -count=1 ./test/... $(OUTPUT_OPTIONS)
+
 
 ## Build:
 build:	## Build main (output dir: ./build/bin/sshtail)
