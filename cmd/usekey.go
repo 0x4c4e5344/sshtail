@@ -1,5 +1,4 @@
 /*
- *
  * Copyright (c) 2020 Joseph Saylor <doug@saylorsolutions.com>
  * Copyright (c) 2023 Lorenzo Delgado <lnsdev@proton.me>
  *
@@ -15,12 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package cmd
 
 import (
 	"fmt"
-	specfile2 "github.com/drognisep/sshtail/pkg/specfile"
-	"io/ioutil"
+	"github.com/drognisep/sshtail/pkg/specfile"
+	"github.com/drognisep/sshtail/pkg/sshtail"
+	"os"
 	"os/user"
 	"path"
 
@@ -41,29 +42,32 @@ Instead of specifying the same key multiple times, the default key can be used
 for all of them. The default key path will be saved to your config file for
 later use.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		config, _ := specfile2.ConfigFile()
+		config, _ := specfile.ConfigFile()
 		if config == nil {
 			// Failed to read in the file. Could be not created yet.
-			config = &specfile2.ConfigFileData{}
+			config = &specfile.ConfigFileData{}
 		}
 
 		keyPath := args[0]
-		_, err := specfile2.LoadKey(keyPath)
+		_, err := sshtail.LoadKey(keyPath)
 		if err != nil {
-			return fmt.Errorf("Unable to load %s as a private key: %v", keyPath, err)
+			return fmt.Errorf("unable to load %s as a private key: %v", keyPath, err)
 		}
+
 		fmt.Println("Key is valid, saving to configuration")
-		config.DefaultKey = specfile2.KeySpec{Path: keyPath}
+		config.DefaultKey = specfile.KeySpec{Path: keyPath}
 
 		newConfig, err := yaml.Marshal(config)
 		if err != nil {
-			return fmt.Errorf("Internal error: %v", err)
+			return fmt.Errorf("internal error: %v", err)
 		}
+
 		u, _ := user.Current()
-		err = ioutil.WriteFile(path.Join(u.HomeDir, ".sshtail.yaml"), newConfig, 0644)
+		err = os.WriteFile(path.Join(u.HomeDir, ".sshtail.yaml"), newConfig, 0644)
 		if err != nil {
 			return err
 		}
+
 		fmt.Printf("Saved '%s' as the new default key\n", keyPath)
 		return nil
 	},
@@ -71,14 +75,4 @@ later use.`,
 
 func init() {
 	rootCmd.AddCommand(usekeyCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// usekeyCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// usekeyCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

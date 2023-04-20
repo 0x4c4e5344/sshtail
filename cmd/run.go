@@ -1,5 +1,4 @@
 /*
- *
  * Copyright (c) 2020 Joseph Saylor <doug@saylorsolutions.com>
  * Copyright (c) 2023 Lorenzo Delgado <lnsdev@proton.me>
  *
@@ -15,11 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package cmd
 
 import (
 	"fmt"
-	specfile2 "github.com/drognisep/sshtail/pkg/specfile"
+	"github.com/drognisep/sshtail/pkg/specfile"
+	"github.com/drognisep/sshtail/pkg/sshtail"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -35,37 +36,30 @@ var runCmd = &cobra.Command{
 	Long: `Spec files have the extension .spec. A template can be created with
 	sshtail spec init your-spec-name-here`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		specData, err := specfile2.ReadSpecFile(args[0])
+		specData, err := specfile.ReadSpecFile(args[0])
 		if err != nil {
-			return fmt.Errorf("Unable to parse config file '%s': %v", args[0], err)
+			return fmt.Errorf("unable to parse config file '%s': %v", args[0], err)
 		}
-		writer, err := specfile2.NewConsolidatedWriter(specData, os.Stdout)
+
+		writer, err := sshtail.NewConsolidatedWriter(specData, os.Stdout)
 		if err != nil {
 			return err
 		}
+
 		for _, s := range outputFiles {
 			file, err := os.OpenFile(s, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
-				return fmt.Errorf("Failed to open and append to file '%s'", s)
+				return fmt.Errorf("failed to open and append to file '%s'", s)
 			}
 			writer.AddOutputFile(file)
 		}
 		writer.Start()
+
 		return nil
 	},
 }
 
 func init() {
 	specCmd.AddCommand(runCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// runCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// runCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	runCmd.Flags().StringSliceVarP(&outputFiles, "output", "o", []string{}, "Adds a file to the list of files that should have messages appended")
 }
