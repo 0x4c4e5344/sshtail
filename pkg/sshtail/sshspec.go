@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-package specfile
+package sshtail
 
 import (
 	"errors"
 	"fmt"
+	"github.com/drognisep/sshtail/pkg/specfile"
 	"os"
 	"os/signal"
 	"os/user"
@@ -86,7 +87,7 @@ type ClientFilePair struct {
 }
 
 // setupClients validates the spec data and sets up ClientFilePair instances.
-func setupClients(specData *SpecData) ([]*ClientFilePair, error) {
+func setupClients(specData *specfile.SpecData) ([]*ClientFilePair, error) {
 	var err error
 	clientPairs := make([]*ClientFilePair, 0, len(specData.Hosts))
 
@@ -235,7 +236,7 @@ type ConsolidatedWriter struct {
 }
 
 // NewConsolidatedWriter creates tail sessions that are ready to start and write to the provided writer.
-func NewConsolidatedWriter(specData *SpecData, out *os.File) (*ConsolidatedWriter, error) {
+func NewConsolidatedWriter(specData *specfile.SpecData, out *os.File) (*ConsolidatedWriter, error) {
 	clientPairs, err := setupClients(specData)
 	if err != nil {
 		return nil, err
@@ -293,7 +294,7 @@ func (c *ConsolidatedWriter) Start() error {
 		if !ts.Started() && !ts.Closed() {
 			err := ts.start(c.ch, &wg)
 			if err != nil {
-				fmt.Println("Failed to start consolidated writer. Closing sessions.")
+				_, _ = fmt.Fprintln(os.Stderr, "Failed to start consolidated writer. Closing sessions.")
 				_ = c.Close()
 				return err
 			}
@@ -307,7 +308,7 @@ func (c *ConsolidatedWriter) Start() error {
 			for _, o := range c.outputFiles {
 				_, err := o.WriteString(line)
 				if err != nil {
-					fmt.Printf("[ERROR] Failed to write line to '%s'\n", o.Name())
+					_, _ = fmt.Fprintf(os.Stderr, "[ERROR] Failed to write line to '%s'\n", o.Name())
 				}
 			}
 		}
@@ -317,11 +318,11 @@ func (c *ConsolidatedWriter) Start() error {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigs
-		fmt.Println("\nSignal received, closing sessions")
+		fmt.Println("Signal received, closing sessions")
 		_ = c.Close()
 	}()
 
 	wg.Wait()
-	fmt.Println("Shut down complete")
+	_, _ = fmt.Fprintln(os.Stderr, "Shut down complete")
 	return nil
 }

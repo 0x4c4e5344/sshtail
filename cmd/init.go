@@ -1,5 +1,4 @@
 /*
- *
  * Copyright (c) 2020 Joseph Saylor <doug@saylorsolutions.com>
  * Copyright (c) 2023 Lorenzo Delgado <lnsdev@proton.me>
  *
@@ -21,7 +20,6 @@ package cmd
 import (
 	"fmt"
 	"github.com/drognisep/sshtail/pkg/specfile"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -44,18 +42,24 @@ tail, and what keys to use (keys are optional to promote portability).`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		filename := strings.TrimSuffix(args[0], suffix) + suffix
 		fmt.Printf("Creating template spec file '%s'\n", filename)
+
 		config := &specfile.SpecTemplateConfig{WithComments: withComments, ExcludeKeys: excludeKeys}
 		text, err := specfile.NewSpecTemplate(config)
 		if err != nil {
 			return err
 		}
+
 		if overwrite == false {
 			_, err = os.Stat(filename)
 			if err == nil {
 				var response string
 				fmt.Printf("The file already exists, do you want to replace it (Y/N)? ")
-				fmt.Scanf("%s\n", &response)
-				response = strings.TrimSpace(strings.ToLower(response))
+				_, err := fmt.Scanf("%s\n", &response)
+				if err != nil {
+					return err
+				}
+
+				response = strings.ToLower(strings.TrimSpace(response))
 				switch response {
 				case "yes":
 				case "y":
@@ -65,10 +69,12 @@ tail, and what keys to use (keys are optional to promote portability).`,
 				}
 			}
 		}
-		err = ioutil.WriteFile(filename, []byte(text), 0644)
+
+		err = os.WriteFile(filename, []byte(text), 0644)
 		if err != nil {
 			return fmt.Errorf("Unable to write to file %s: %v", filename, err)
 		}
+
 		fmt.Println("Spec written to file")
 		return nil
 	},
