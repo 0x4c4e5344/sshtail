@@ -27,7 +27,6 @@ import (
 )
 
 var withComments bool
-var excludeKeys bool
 var overwrite bool
 
 const suffix string = ".yml"
@@ -43,13 +42,12 @@ tail, and what keys to use (keys are optional to promote portability).`,
 		filename := strings.TrimSuffix(args[0], suffix) + suffix
 		fmt.Printf("Creating template spec file '%s'\n", filename)
 
-		config := &specfile.SpecTemplateConfig{WithComments: withComments, ExcludeKeys: excludeKeys}
-		text, err := specfile.NewSpecTemplate(config)
+		text, err := specfile.NewSpecTemplate(withComments)
 		if err != nil {
 			return err
 		}
 
-		if overwrite == false {
+		if !overwrite {
 			_, err = os.Stat(filename)
 			if err == nil {
 				var response string
@@ -72,7 +70,7 @@ tail, and what keys to use (keys are optional to promote portability).`,
 
 		err = os.WriteFile(filename, []byte(text), 0644)
 		if err != nil {
-			return fmt.Errorf("Unable to write to file %s: %v", filename, err)
+			return fmt.Errorf("unable to write to file %s: %v", filename, err)
 		}
 
 		fmt.Println("Spec written to file")
@@ -84,6 +82,5 @@ func init() {
 	specCmd.AddCommand(initCmd)
 
 	initCmd.Flags().BoolVarP(&withComments, "with-comments", "", false, "Include comments in the template. This can be useful for understanding the format")
-	initCmd.Flags().BoolVarP(&excludeKeys, "exclude-keys", "", false, "Exclude the keys section to create a portable spec file")
 	initCmd.Flags().BoolVarP(&overwrite, "overwrite", "", false, "Do not check for the existence of the target file, overwrite it.")
 }
