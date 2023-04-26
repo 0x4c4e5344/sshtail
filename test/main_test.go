@@ -30,7 +30,7 @@ import (
 	"time"
 )
 
-func Test1(t *testing.T) {
+func Test(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
@@ -48,24 +48,18 @@ func Test1(t *testing.T) {
 	specData := &specfile.SpecData{
 		Hosts: map[string]*specfile.HostSpec{
 			"serverA": {
-				Hostname: serverA.Hostname,
-				Username: serverA.Username,
-				File:     "/app/logs/test.log",
-				Port:     serverA.Port,
+				Hostname:     serverA.Hostname,
+				Username:     serverA.Username,
+				File:         "/app/logs/test.log",
+				IdentityFile: serverA.IdentityFile,
+				Port:         serverA.Port,
 			},
 			"serverB": {
-				Hostname: serverB.Hostname,
-				Username: serverB.Username,
-				File:     "/app/logs/test.log",
-				Port:     serverB.Port,
-			},
-		},
-		Keys: map[string]*specfile.KeySpec{
-			"serverA": {
-				Path: serverA.IdentityFile,
-			},
-			"serverB": {
-				Path: serverB.IdentityFile,
+				Hostname:     serverB.Hostname,
+				Username:     serverB.Username,
+				File:         "/app/logs/test.log",
+				IdentityFile: serverB.IdentityFile,
+				Port:         serverB.Port,
 			},
 		},
 	}
@@ -79,10 +73,8 @@ func Test1(t *testing.T) {
 	writer, err := sshtail.NewConsolidatedWriter(specData, &buffer)
 	require.NoError(t, err, "failed to create consolidated writer")
 
-	go func() {
-		err = writer.Start(ctx)
-		require.NoErrorf(t, err, "failed to start consolidated writer: %v", err)
-	}()
+	err = writer.Start(ctx)
+	require.NoErrorf(t, err, "failed to start consolidated writer: %v", err)
 
 	time.Sleep(2 * time.Second)
 
