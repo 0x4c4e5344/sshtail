@@ -18,22 +18,25 @@
 package sshtail
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"github.com/drognisep/sshtail/pkg/specfile"
-	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/terminal"
-	"io"
 	"net"
 	"os"
+	"os/signal"
+	"os/user"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
 	"syscall"
+
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
-func noOpBanner(_ string) error { return nil }
+func noOpBanner(message string) error { return nil }
 
 // LoadKey reads a key from file
 func LoadKey(path string) (ssh.AuthMethod, error) {
@@ -67,37 +70,22 @@ func LoadKey(path string) (ssh.AuthMethod, error) {
 	return ssh.PublicKeys(signer), nil
 }
 
+func createKnownHostsCallback() (ssh.HostKeyCallback, error) {
+	c, _ := user.Current()
+	knownHostPath := path.Join(c.HomeDir, ".ssh", "known_hosts")
+	knownHostsCallback, err := knownhosts.New(knownHostPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create host key verification callback using '%s': %v", knownHostPath, err)
+	}
+
+	return knownHostsCallback, nil
+}
+
 // ClientFilePair associates a Client connection with a host tag and file
 type ClientFilePair struct {
 	Client  *ssh.Client
 	HostTag string
 	File    string
-}
-
-func NewClientFilePair(hostTag string, host *specfile.HostSpec, key *specfile.KeySpec) (*ClientFilePair, error) {
-	authMethod, err := LoadKey(key.Path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load key from %s: %w", key.Path, err)
-	}
-
-	addr := net.JoinHostPort(host.Hostname, strconv.Itoa(host.Port))
-	config := &ssh.ClientConfig{
-		User:            host.Username,
-		Auth:            []ssh.AuthMethod{authMethod},
-		BannerCallback:  noOpBanner,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-	}
-	client, err := ssh.Dial("tcp", addr, config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to %s: %v", addr, err)
-	}
-
-	clientPair := &ClientFilePair{
-		Client:  client,
-		HostTag: hostTag,
-		File:    host.File,
-	}
-	return clientPair, nil
 }
 
 // setupClients validates the spec data and sets up ClientFilePair instances.
@@ -110,35 +98,53 @@ func setupClients(specData *specfile.SpecData) ([]*ClientFilePair, error) {
 		return nil, fmt.Errorf("invalid spec data: %v", err)
 	}
 
-	for hostTag, v := range specData.Hosts {
-		clientPair, err := NewClientFilePair(hostTag, v, specData.Keys[hostTag])
+	knownHostsCallback, err := createKnownHostsCallback()
+	if err != nil {
+		return nil, err
+	}
+
+	for k, v := range specData.Hosts {
+		authMethod, err := LoadKey(specData.Keys[k].Path)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to load key from %s: %v", specData.Keys[k].Path, err)
 		}
 
-		clientPairs = append(clientPairs, clientPair)
+		config := &ssh.ClientConfig{
+			User:            v.Username,
+			Auth:            []ssh.AuthMethod{authMethod},
+			BannerCallback:  noOpBanner,
+			HostKeyCallback: knownHostsCallback,
+		}
+		hostPort := net.JoinHostPort(v.Hostname, strconv.Itoa(v.Port))
+		client, err := ssh.Dial("tcp", hostPort, config)
+		if err != nil {
+			return nil, fmt.Errorf("failed to connect to %s: %v", hostPort, err)
+		}
+
+		clientPairs = append(clientPairs, &ClientFilePair{client, k, v.File})
 	}
 
 	return clientPairs, nil
 }
 
-// TailChannelWriter is a wrapper around a channel that implements the io.Writer interface.
 type TailChannelWriter struct {
 	prefix string
 	ch     chan<- string
 }
 
-func (t TailChannelWriter) Write(b []byte) (int, error) {
-	t.ch <- fmt.Sprintf("%s | %s", t.prefix, string(b))
-	return len(b), nil
+func (t TailChannelWriter) Write(b []byte) (n int, err error) {
+	t.ch <- fmt.Sprintf("[ %s ] %s", t.prefix, string(b))
+	n = len(b)
+	return
 }
 
-// TailSession represents a single tail session.
+// TailSession represents
 type TailSession struct {
-	client  *ClientFilePair
-	session *ssh.Session
-	closed  bool
-	wg      *sync.WaitGroup
+	clientPair *ClientFilePair
+	session    *ssh.Session
+	closed     bool
+	started    bool
+	wg         *sync.WaitGroup
 }
 
 // Closed returns whether the tail session has been previously closed. A closed tail session cannot be restarted.
@@ -148,87 +154,95 @@ func (s *TailSession) Closed() bool {
 
 // Started returns whether the tail session has already been started.
 func (s *TailSession) Started() bool {
-	return s.session != nil
+	return s.started
 }
 
 // Close stops the running tail session and disconnects the client.
 func (s *TailSession) Close() error {
-	if s.closed {
-		return nil
+	var err error
+	if !s.closed {
+		fmt.Printf("Closing session to %s\n", s.clientPair.HostTag)
+
+		s.closed = true
+		sb := strings.Builder{}
+		errorsOccurred := false
+
+		e1 := s.session.Close()
+		if e1 != nil {
+			sb.WriteString(e1.Error())
+			errorsOccurred = true
+		}
+
+		e2 := s.clientPair.Client.Close()
+		if e2 != nil {
+			sb.WriteString(e2.Error())
+			errorsOccurred = true
+		}
+
+		if errorsOccurred {
+			err = fmt.Errorf("error(s) closing tail session: %s", sb.String())
+		}
+
+		s.wg.Done()
 	}
 
-	_, _ = fmt.Fprintf(os.Stderr, "Closing session to %s\n", s.client.HostTag)
-
-	errorString := strings.Builder{}
-	e1 := s.session.Close()
-	if e1 != nil {
-		errorString.WriteString(e1.Error())
-	}
-
-	e2 := s.client.Client.Close()
-	if e2 != nil {
-		errorString.WriteString(e2.Error())
-	}
-
-	if errorString.Len() > 0 {
-		return fmt.Errorf("error(s) closing tail session: %s", errorString.String())
-	}
-
-	s.closed = true
-	s.wg.Done()
-
-	return nil
+	return err
 }
 
 // Start the tail session using configured parameters
-func (s *TailSession) Start(ch chan<- string, wg *sync.WaitGroup) error {
-	if s.session != nil {
+func (s *TailSession) start(ch chan<- string, wg *sync.WaitGroup) error {
+	if s.closed {
+		return errors.New("can't start a closed tail session")
+	}
+
+	if s.started {
 		return errors.New("tail session is already started")
 	}
 
-	var err error
-	s.session, err = s.client.Client.NewSession()
+	session, err := s.clientPair.Client.NewSession()
 	if err != nil {
 		return fmt.Errorf("error establishing session: %v", err)
 	}
 
-	s.session.Stdout = TailChannelWriter{s.client.HostTag, ch}
+	s.session = session
+	session.Stdout = TailChannelWriter{s.clientPair.HostTag, ch}
 	go func() {
 		wg.Add(1)
 		s.wg = wg
-		cmd := fmt.Sprintf("tail -f %s", s.client.File)
+		cmd := fmt.Sprintf("tail -f %s", s.clientPair.File)
 
 		// We don't care if tail exits abruptly, ignoring the error
-		_ = s.session.Run(cmd)
+		_ = session.Run(cmd)
 	}()
+	s.started = true
 
 	return nil
 }
 
 // NewTailSession creates a new TailSession instance that is ready to be started.
 func NewTailSession(client *ClientFilePair) *TailSession {
-	return &TailSession{client, nil, false, nil}
+	return &TailSession{client, nil, false, false, nil}
 }
 
 // ConsolidatedWriter receives messages from all of its tail session instances and writes them to its output stream.
 type ConsolidatedWriter struct {
 	ch          chan string
 	sessions    []*TailSession
-	out         io.Writer
+	out         *os.File
 	started     bool
 	closed      bool
 	outputFiles []*os.File
 }
 
-// NewConsolidatedWriter creates tail sessions that are ready to Start and write to the provided writer.
-func NewConsolidatedWriter(specData *specfile.SpecData, out io.Writer) (*ConsolidatedWriter, error) {
+// NewConsolidatedWriter creates tail sessions that are ready to start and write to the provided writer.
+func NewConsolidatedWriter(specData *specfile.SpecData, out *os.File) (*ConsolidatedWriter, error) {
 	clientPairs, err := setupClients(specData)
 	if err != nil {
 		return nil, err
 	}
 
 	numHosts := len(specData.Hosts)
-	var ch = make(chan string, 1024*numHosts)
+	var ch = make(chan string, numHosts)
 	sessions := make([]*TailSession, 0, numHosts)
 	for _, pair := range clientPairs {
 		ts := NewTailSession(pair)
@@ -257,16 +271,10 @@ func (c *ConsolidatedWriter) AddOutputFile(file *os.File) error {
 
 // Close closes all tail sessions as well as the connected clients.
 func (c *ConsolidatedWriter) Close() error {
-	if c.closed {
-		return nil
-	}
-
 	for _, ts := range c.sessions {
-		if !ts.Started() || ts.Closed() {
-			continue
+		if ts.Started() && !ts.Closed() {
+			_ = ts.Close()
 		}
-
-		_ = ts.Close()
 	}
 
 	if len(c.outputFiles) > 0 {
@@ -275,55 +283,45 @@ func (c *ConsolidatedWriter) Close() error {
 		}
 	}
 
-	c.closed = true
-
 	return nil
 }
 
 // Start starts all tail sessions. In the event of an error, all already opened sessions are closed and an error is returned.
-func (c *ConsolidatedWriter) Start(ctx context.Context) error {
+func (c *ConsolidatedWriter) Start() error {
 	var wg sync.WaitGroup
 	for _, ts := range c.sessions {
-		if ts.Started() || ts.Closed() {
-			continue
-		}
-
-		err := ts.Start(c.ch, &wg)
-		if err != nil {
-			_ = c.Close()
-			return err
+		if !ts.Started() && !ts.Closed() {
+			err := ts.start(c.ch, &wg)
+			if err != nil {
+				_, _ = fmt.Fprintln(os.Stderr, "Failed to start consolidated writer. Closing sessions.")
+				_ = c.Close()
+				return err
+			}
 		}
 	}
 
-	_, _ = fmt.Fprintf(os.Stderr, "Started tailing, send interrupt signal to exit\n")
-	go func(ctx context.Context) {
-		for {
-			select {
-			case line, ok := <-c.ch:
-				if !ok {
-					_ = c.Close()
-					return
+	fmt.Printf("Started tailing, send interrupt signal to exit\n\n")
+	go func() {
+		for line := range c.ch {
+			_, _ = c.out.WriteString(line)
+			for _, o := range c.outputFiles {
+				_, err := o.WriteString(line)
+				if err != nil {
+					_, _ = fmt.Fprintf(os.Stderr, "[ERROR] Failed to write line to '%s'\n", o.Name())
 				}
-
-				// Write to output buffer
-				_, _ = c.out.Write([]byte(line))
-
-				// Write to output files
-				for _, o := range c.outputFiles {
-					_, err := o.WriteString(line)
-					if err != nil {
-						_, _ = fmt.Fprintf(os.Stderr, "[ERROR] Failed to write line to '%s'\n", o.Name())
-					}
-				}
-			case <-ctx.Done():
-				_ = c.Close()
-				return
 			}
 		}
-	}(ctx)
+	}()
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigs
+		fmt.Println("Signal received, closing sessions")
+		_ = c.Close()
+	}()
 
 	wg.Wait()
-	_, _ = fmt.Fprintln(os.Stderr, "Shutdown complete")
-
+	_, _ = fmt.Fprintln(os.Stderr, "Shut down complete")
 	return nil
 }

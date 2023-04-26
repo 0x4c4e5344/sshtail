@@ -169,7 +169,7 @@ func ConfigFile() (*ConfigFileData, error) {
 	var confFileData *ConfigFileData
 	err = yaml.Unmarshal(confData, confFileData)
 	if err != nil {
-		return nil, fmt.Errorf("Config file is not a valid format: %v", err)
+		return nil, fmt.Errorf("config file is not a valid format: %v", err)
 	}
 
 	return confFileData, nil

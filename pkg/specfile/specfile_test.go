@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"github.com/magiconair/properties/assert"
 	"github.com/stretchr/testify/require"
-	"io/ioutil"
 	"os"
 	"testing"
 )
@@ -180,7 +179,7 @@ func TestReadCommented(t *testing.T) {
 		t.Errorf("Failed to create spec template: %v", err)
 	}
 
-	ioutil.WriteFile("testCommented.yml", []byte(text), 0644)
+	os.WriteFile("testCommented.yml", []byte(text), 0644)
 	defer os.Remove("testCommented.yml")
 	data, err := ReadSpecFile("testCommented.yml")
 	if err != nil {
@@ -209,7 +208,7 @@ func TestReadHostOnly(t *testing.T) {
 		t.Errorf("Failed to create spec template: %v", err)
 	}
 
-	ioutil.WriteFile("testHostOnly.yml", []byte(text), 0644)
+	os.WriteFile("testHostOnly.yml", []byte(text), 0644)
 	defer os.Remove("testHostOnly.yml")
 	data, err := ReadSpecFile("testHostOnly.yml")
 	if err != nil {
