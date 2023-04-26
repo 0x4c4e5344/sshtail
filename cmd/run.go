@@ -18,10 +18,13 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"github.com/drognisep/sshtail/pkg/specfile"
 	"github.com/drognisep/sshtail/pkg/sshtail"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/spf13/cobra"
 )
@@ -53,7 +56,21 @@ var runCmd = &cobra.Command{
 			}
 			writer.AddOutputFile(file)
 		}
-		writer.Start()
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+		go func() {
+			<-sigs
+			_, _ = fmt.Fprintln(os.Stderr, "Signal received, closing sessions")
+			_ = writer.Close()
+		}()
+
+		if err = writer.Start(ctx); err != nil {
+			return fmt.Errorf("failed to start: %w", err)
+		}
 
 		return nil
 	},
