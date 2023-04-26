@@ -29,8 +29,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var outputFiles []string
-
 // runCmd represents the run command
 var runCmd = &cobra.Command{
 	Use:   "run",
@@ -39,22 +37,19 @@ var runCmd = &cobra.Command{
 	Long: `Spec files have the extension .spec. A template can be created with
 	sshtail spec init your-spec-name-here`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		specData, err := specfile.ReadSpecFile(args[0])
+		specFile, err := os.Open(args[0])
 		if err != nil {
-			return fmt.Errorf("unable to parse config file '%s': %v", args[0], err)
+			return fmt.Errorf("failed to open config file '%s': %w", args[0], err)
+		}
+
+		specData, err := specfile.LoadSpecData(specFile)
+		if err != nil {
+			return fmt.Errorf("unable to parse config file '%s': %w", args[0], err)
 		}
 
 		writer, err := sshtail.NewConsolidatedWriter(specData, os.Stdout)
 		if err != nil {
 			return err
-		}
-
-		for _, s := range outputFiles {
-			file, err := os.OpenFile(s, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-			if err != nil {
-				return fmt.Errorf("failed to open and append to file '%s'", s)
-			}
-			writer.AddOutputFile(file)
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -68,6 +63,7 @@ var runCmd = &cobra.Command{
 			_ = writer.Close()
 		}()
 
+		_, _ = fmt.Fprintf(os.Stderr, "Started tailing, send interrupt signal to exit\n")
 		if err = writer.Start(ctx); err != nil {
 			return fmt.Errorf("failed to start: %w", err)
 		}
@@ -78,5 +74,4 @@ var runCmd = &cobra.Command{
 
 func init() {
 	specCmd.AddCommand(runCmd)
-	runCmd.Flags().StringSliceVarP(&outputFiles, "output", "o", []string{}, "Adds a file to the list of files that should have messages appended")
 }

@@ -12,12 +12,12 @@ This is a CLI app that will set up SSH connections to multiple hosts specified i
 ## Installation
 If you're [using Go 1.16+](https://blog.golang.org/go116-module-changes), run this.
 ```bash
-go install github.com/drognisep/sshtail@latest
+go install github.com/0x4c4e5344/sshtail@latest
 ```
 
 Otherwise, just run this command!
 ```bash
-go get github.com/drognisep/sshtail
+go get github.com/0x4c4e5344/sshtail
 ```
 
 You can also download one of the releases directly.
@@ -33,39 +33,29 @@ Here's the output.
 # Hosts and files to tail
 hosts:
   host1:
-    hostname: remote-host-1
+      hostname: remote-host-1
     # Excluding the username here will default it to the current user name
-    file: /var/log/syslog
-    # Default SSH port, can be excluded.
+      file: /var/log/syslog
+      identity_file: ~/.ssh/id_rsa
+      # Default SSH port, can be excluded.
     port: 22
   host2:
-    hostname: remote-host-2
-    username: me
-    file: /var/log/syslog
+      hostname: remote-host-2
+      username: me
+      identity_file: ~/.ssh/id_rsa
+      file: /var/log/syslog
     port: 22
-# This section is optional for portability
-keys:
-  host1:
-    # Defaults to this value, can be excluded.
-    path: ~/.ssh/id_rsa
-  host2:
-    # If all of these key path values are the same, then 'sshtail usekey' may be more convenient.
-    path: ~/.ssh/id_rsa
 ```
 
 ## Hosts
 This section is used to specify the host machines to connect to. `hostname` and `file` are required, but `port` may be excluded if the default SSH port of 22 is desired.
 
 The values of "host1" and "host2" can be anything you wish, and are primarily used to match a specified host with a given key path, and to tag the output to your terminal like so:
-```
-[ host1 ] A line posted to /var/log/syslog on remote-host-1...
-[ host1 ] And another one...
-```
 
-## Keys
-This section is entirely optional, but an entry here overrides both user home configuration and the default value, as long as the key tag (like "host1") matches up with a host tag.
-
-If there are more `keys` entries than `hosts` entries, a warning is printed to the terminal.
+```
+host1 | A line posted to /var/log/syslog on remote-host-1...
+host1 | And another one...
+```
 
 ## Common Commands
 This will create a spec file useful for understanding the format, exactly like what is shown above.
@@ -78,18 +68,7 @@ To make it a bit more useful, this will exclude the `keys` section for portabili
 sshtail spec init --exclude-keys <spec file name>
 ```
 
-The default path for the SSH key used is `~/.ssh/id_rsa`. If you don't want to put a `keys` section in your spec file this command can be used to override the default by placing the given path in your config file (`~/.sshkeys.yaml`).
-
-**Note:** The given file is not currently validated as a real key. I plan on fixing this soon.
-```bash
-sshtail usekey /new/default/key/here
-```
-
 Finally, to execute a spec use this command. If the configured key is encrypted then the user will be asked to enter their pass phrase each time it is referenced. This is for security purposes because I don't want to cache the pass phrase in memory.
 ```bash
 sshtail spec run <spec file name>
 ```
-
-**Additional Options**
-* `-o <file>`
-  * Using this option will specify an output file to be created if it doesn't exist and appended to with the aggregated output.
